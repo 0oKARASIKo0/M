@@ -394,7 +394,7 @@ FlyButton.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
 local CrashButton = Instance.new("TextButton", menuframe)
 CrashButton.Position = UDim2.new(0.069, 0, 0.683, 0)
 CrashButton.Size = UDim2.new(0, 200, 0, 50)
-CrashButton.Text = "Crash Server"
+CrashButton.Text = "Crash Server (Fixed, dont working)"
 
 CrashButton.MouseButton1Click:Connect(function()
 
