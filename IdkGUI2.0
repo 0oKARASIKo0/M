@@ -33,10 +33,6 @@ CloseGuiButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 CloseGuiButton.TextColor3 = Color3.new(1,1,1)
 CloseGuiButton.BorderSizePixel = 0
 
-CloseGuiButton.MouseButton1Click:Connect(function()
-	menu:Destroy()
-end)
-
 local GhostModeButton = Instance.new("TextButton", menuframe)
 GhostModeButton.Position = UDim2.new(0.069, 0, 0.105, 0)
 GhostModeButton.Size = UDim2.new(0, 200, 0, 50)
@@ -694,4 +690,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
 	-- Set the CFrame to move and orient the character
 	hrp.CFrame = CFrame.new(newPosition, lookAtPosition)
 end)
-
+CloseGuiButton.MouseButton1Click:Connect(function()
+	menu:Destroy()
+	button:Destroy()
+end)
