@@ -1,0 +1,66 @@
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local joinanyplayergui = Instance.new("ScreenGui")
+joinanyplayergui.Name = "JoinPlayerGui"
+joinanyplayergui.Parent = PlayerGui
+
+local framejoin = Instance.new("Frame")
+framejoin.Name = "JoinFrame"
+framejoin.Size = UDim2.new(0, 300, 0, 200)
+framejoin.Position = UDim2.new(0.5, -150, 0.5, -100)
+framejoin.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+framejoin.BorderSizePixel = 1
+framejoin.Parent = joinanyplayergui
+framejoin.Active = true
+framejoin.Draggable = true
+
+local joininputplayername = Instance.new("TextBox")
+joininputplayername.Name = "PlayerNameInput"
+joininputplayername.Size = UDim2.new(0.8, 0, 0, 40)
+joininputplayername.Position = UDim2.new(0.1, 0, 0.2, 0)
+joininputplayername.PlaceholderText = "Enter player name"
+joininputplayername.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+joininputplayername.TextColor3 = Color3.fromRGB(255, 255, 255)
+joininputplayername.ClearTextOnFocus = false
+joininputplayername.Parent = framejoin
+joininputplayername.Text = "IDKjoinGui"
+
+local joinbutton = Instance.new("TextButton")
+joinbutton.Name = "JoinButton"
+joinbutton.Size = UDim2.new(0.8, 0, 0, 50)
+joinbutton.Position = UDim2.new(0.1, 0, 0.6, 0)
+joinbutton.Text = "Join"
+joinbutton.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+joinbutton.TextColor3 = Color3.fromRGB(255, 255, 255)
+joinbutton.Parent = framejoin
+
+joinbutton.MouseButton1Click:Connect(function()
+    local playerName = joininputplayername.Text
+    if playerName and playerName ~= "" then
+        local targetPlayer = Players:FindFirstChild(playerName)
+        if targetPlayer then
+            if targetPlayer == LocalPlayer then
+                joininputplayername.Text = "Cannot join self"
+                return
+            end
+
+            local success, errorMessage = pcall(function()
+                TeleportService:Teleport(game.PlaceId, targetPlayer)
+            end)
+
+            if success then
+                joinanyplayergui.Enabled = false 
+            else
+                joininputplayername.Text = "Failed to join: " .. (errorMessage or "Unknown error")
+            end
+        else
+            joininputplayername.Text = "Player not found"
+        end
+    else
+        joininputplayername.Text = "" 
+        joininputplayername.PlaceholderText = "Enter a name!"
+    end
+end)	
