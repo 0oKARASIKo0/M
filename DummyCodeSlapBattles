@@ -1,0 +1,51 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+local targetPosition = Vector3.new(-1010, 331, 1)
+local function teleportCharacterOnSpawn(character)
+    if character and typeof(character.PivotTo) == "function" then
+        task.wait() 
+		character:PivotTo(CFrame.new(targetPosition))
+		Players.LocalPlayer.Character.Humanoid.WalkSpeed = 0
+		Players.LocalPlayer.Character.Humanoid.JumpHeight = 0
+    else
+    end
+end
+if LocalPlayer then
+    LocalPlayer.CharacterAdded:Connect(teleportCharacterOnSpawn)
+    if LocalPlayer.Character then
+        teleportCharacterOnSpawn(LocalPlayer.Character)
+    end
+end
+
+while true do
+	local function moveToolsToBackpack(character)
+		if not character then
+			return
+		end
+
+		local backpack = LocalPlayer.Backpack
+		if not backpack then
+			warn("Backpack not found for LocalPlayer: " .. LocalPlayer.Name)
+			return
+		end
+		local childrenToMove = {}
+		for _, child in character:GetChildren() do
+			if child:IsA("Tool") then
+				table.insert(childrenToMove, child)
+			end
+		end
+
+		for _, tool in childrenToMove do
+			tool.Parent = backpack
+			tool:Destroy()
+		end
+	end
+
+	if LocalPlayer then
+		LocalPlayer.CharacterAdded:Connect(moveToolsToBackpack)
+		if LocalPlayer.Character then
+			moveToolsToBackpack(LocalPlayer.Character)
+		end
+	end
+	task.wait(0.000001)
+end
