@@ -1,0 +1,179 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService") 
+local LocalPlayer = Players.LocalPlayer
+
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local isLoopActive = false
+local teleportCoroutine = nil
+local verticalOffset = 0 
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "TeleportControlGui"
+screenGui.ResetOnSpawn = false 
+screenGui.Parent = PlayerGui
+
+local teleportControlFrame = Instance.new("Frame")
+teleportControlFrame.Name = "TeleportControlFrame"
+teleportControlFrame.Size = UDim2.new(0, 250, 0, 180) 
+teleportControlFrame.Position = UDim2.new(0.5, -125, 0.1, 0) 
+teleportControlFrame.AnchorPoint = Vector2.new(0.5, 0)
+teleportControlFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+teleportControlFrame.BorderSizePixel = 1
+teleportControlFrame.Parent = screenGui
+teleportControlFrame.Active = true
+teleportControlFrame.Draggable = true
+
+local closeButton = Instance.new("TextButton", teleportControlFrame)
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 25, 0, 25)
+closeButton.Position = UDim2.new(1, -5, 0, 5) 
+closeButton.AnchorPoint = Vector2.new(1, 0)
+closeButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.Font = Enum.Font.SourceSansBold
+closeButton.TextSize = 16
+closeButton.Text = "X"
+
+local teleportButton = Instance.new("TextButton", teleportControlFrame)
+teleportButton.Name = "TeleportButton"
+teleportButton.Size = UDim2.new(0, 200, 0, 50)
+teleportButton.Position = UDim2.new(0.5, 0, 0, 35) 
+teleportButton.AnchorPoint = Vector2.new(0.5, 0)
+teleportButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50) 
+teleportButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+teleportButton.Font = Enum.Font.SourceSansBold
+teleportButton.TextSize = 18
+teleportButton.Text = "Teleport Loop: OFF"
+
+local playerNameInput = Instance.new("TextBox", teleportControlFrame)
+playerNameInput.Name = "PlayerNameInput"
+playerNameInput.Size = UDim2.new(0, 200, 0, 40)
+playerNameInput.Position = UDim2.new(0.5, 0, 0, 95) 
+playerNameInput.AnchorPoint = Vector2.new(0.5, 0)
+playerNameInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+playerNameInput.TextColor3 = Color3.fromRGB(220, 220, 220)
+playerNameInput.Font = Enum.Font.SourceSans
+playerNameInput.TextSize = 16
+playerNameInput.PlaceholderText = "Enter Player Name"
+playerNameInput.ClearTextOnFocus = false
+playerNameInput.Text = "IDKshieldPlayer"
+
+local function getTargetPlayer()
+	local name = playerNameInput.Text
+	local trimmedName = name and string.gsub(name, "%s", "") or "" 
+
+	if trimmedName ~= "" then
+		return Players:FindFirstChild(trimmedName)
+	else
+		return nil 
+	end
+end
+
+local SPIN_SPEED_DEGREES_PER_SECOND = 480 
+
+local function runTeleportLoop()
+	while isLoopActive do
+		local targetPlayer = getTargetPlayer()
+
+		if not targetPlayer or targetPlayer == LocalPlayer then
+			task.wait(0.5) 
+			continue
+		end
+
+		local localPlayerCharacter = LocalPlayer.Character
+		if not localPlayerCharacter then
+			task.wait(0.1) 
+			continue
+		end
+
+		local localPlayerHRP = localPlayerCharacter:FindFirstChild("HumanoidRootPart")
+		if not localPlayerHRP then
+			task.wait(0.1) 
+			continue
+		end
+
+		local targetPlayerCharacter = targetPlayer.Character
+		if not targetPlayerCharacter then
+			task.wait(0.1) 
+			continue
+		end
+
+		local targetPlayerHRP = targetPlayerCharacter:FindFirstChild("HumanoidRootPart")
+		if not targetPlayerHRP then
+			task.wait(0.1) 
+			continue
+		end
+
+		local targetHrpPosition = targetPlayerHRP.CFrame.Position
+		local offsetVector = Vector3.new(0, verticalOffset, 0) 
+		local newLocalPlayerPosition = targetHrpPosition - offsetVector
+
+		local currentTime = tick()
+		local rotationX = math.rad(currentTime * SPIN_SPEED_DEGREES_PER_SECOND)
+		local rotationY = math.rad(currentTime * SPIN_SPEED_DEGREES_PER_SECOND * 1.1) 
+		local rotationZ = math.rad(currentTime * SPIN_SPEED_DEGREES_PER_SECOND * 1.2) 
+
+		local rotationCFrame = CFrame.Angles(rotationX, rotationY, rotationZ)
+		local newLocalPlayerCFrame = CFrame.new(newLocalPlayerPosition) * rotationCFrame
+
+		localPlayerCharacter:PivotTo(newLocalPlayerCFrame)
+
+		task.wait(0.05) 
+	end
+end
+
+local function updateButtonAppearance()
+	if isLoopActive then
+		teleportButton.Text = "Shield Player: ON"
+		teleportButton.BackgroundColor3 = Color3.fromRGB(50, 200, 50) 
+	else
+		teleportButton.Text = "Shield Player: OFF"
+		teleportButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50) 
+	end
+end
+
+teleportButton.MouseButton1Click:Connect(function()
+	isLoopActive = not isLoopActive
+	updateButtonAppearance()
+
+	if isLoopActive then
+		if teleportCoroutine then
+			task.cancel(teleportCoroutine) 
+		end
+		teleportCoroutine = task.spawn(runTeleportLoop)
+	else
+		if teleportCoroutine then
+			task.cancel(teleportCoroutine)
+			teleportCoroutine = nil
+		end
+	end
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+	teleportControlFrame.Visible = false
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+	if gameProcessedEvent then 
+		return 
+	end
+end)
+
+updateButtonAppearance()
+
+local function onLocalPlayerDied()
+	
+end
+
+if LocalPlayer.Character then
+	local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.Died:Connect(onLocalPlayerDied)
+	end
+end
+
+LocalPlayer.CharacterAdded:Connect(function(character)
+	local humanoid = character:WaitForChild("Humanoid")
+	humanoid.Died:Connect(onLocalPlayerDied)
+end)
