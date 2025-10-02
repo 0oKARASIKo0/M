@@ -1,0 +1,957 @@
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local Camera = workspace.CurrentCamera
+
+local menu = Instance.new("ScreenGui", PlayerGui)
+menu.Name = "IdkGui"
+
+local menuframe = Instance.new("Frame", menu)
+menuframe.BackgroundColor3 = Color3.fromRGB(23, 124, 255)
+menuframe.Position = UDim2.new(0.162, 0, 0.314, 0)
+menuframe.Size = UDim2.new(0, 233, 0, 502)
+
+menuframe.Draggable = true
+menuframe.Active = true
+
+local Title = Instance.new("TextLabel", menuframe)
+Title.Position = UDim2.new(0, 0, 0, 0)
+Title.Size = UDim2.new(1, -24, 0, 20)
+Title.Text = "IdkGui"
+Title.BorderSizePixel = 0
+Title.TextColor3 = Color3.new(1,1,1)
+local CloseGuiButton = Instance.new("TextButton", menuframe)
+CloseGuiButton.Position = UDim2.new(1, -24, 0, 0)
+CloseGuiButton.Size = UDim2.new(0, 24, 0, 20)
+CloseGuiButton.Text = "X"
+CloseGuiButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+CloseGuiButton.TextColor3 = Color3.new(1,1,1)
+CloseGuiButton.BorderSizePixel = 0
+
+local GhostModeButton = Instance.new("TextButton", menuframe)
+GhostModeButton.Position = UDim2.new(0.069, 0, 0.105, 0)
+GhostModeButton.Size = UDim2.new(0, 200, 0, 50)
+GhostModeButton.Text = "Ghost Mode"
+
+local ghostModeActive = false
+local platformInstance = nil
+local originalCollisions = {}
+
+GhostModeButton.MouseButton1Click:Connect(function()
+	if ghostModeActive then return end
+
+	local character = LocalPlayer.Character
+	if not character then return end
+
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	if not humanoidRootPart then return end
+
+	ghostModeActive = true
+	GhostModeButton.Text = "Ghost Mode (Active)"
+	GhostModeButton.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
+
+	originalCollisions = {}
+
+	for _, descendant in Workspace:GetDescendants() do
+		if descendant:IsA("BasePart") and not descendant:IsDescendantOf(character) then
+			originalCollisions[descendant] = descendant.CanCollide
+			descendant.CanCollide = false
+		end
+	end
+
+	for _, descendant in character:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			descendant.Transparency = 0.5
+		end
+	end
+	for _, descendant in character:GetDescendants() do
+		if descendant.Name == "HumanoidRootPart" then
+			descendant.Transparency = 1
+		end
+	end
+	if humanoidRootPart then
+		humanoidRootPart.Transparency = 1
+	end
+	for _, descendant in Workspace:GetDescendants() do
+		if descendant.Name == "HumanoidRootPart" then
+			descendant.Transparency = 1
+		end
+	end
+
+	if platformInstance then platformInstance:Destroy() end
+
+	platformInstance = Instance.new("Part")
+	platformInstance.Name = "SpawnPlatform"
+	platformInstance.Size = Vector3.new(350, 1, 350)
+	platformInstance.Transparency = 1
+	platformInstance.Material = Enum.Material.Plastic
+	platformInstance.Anchored = true
+	platformInstance.CanCollide = true
+
+	local rootPosition = humanoidRootPart.Position
+	local rootSize = humanoidRootPart.Size
+	local platformSize = platformInstance.Size
+	local platformYOffset = rootSize.Y / 2 + platformSize.Y / 2 + 2
+	local platformPosition = rootPosition - Vector3.new(0, platformYOffset, 0)
+
+	platformInstance.Position = platformPosition
+	platformInstance.Parent = Workspace
+
+	task.delay(6, function()
+		for part, canCollide in originalCollisions do
+			if part and part.Parent then
+				part.CanCollide = canCollide
+			end
+		end
+		originalCollisions = {}
+
+		if platformInstance then
+			platformInstance:Destroy()
+			platformInstance = nil
+		end
+
+		local currentChar = LocalPlayer.Character
+		if currentChar then
+			for _, descendant in currentChar:GetDescendants() do
+				if descendant:IsA("BasePart") then
+					descendant.Transparency = 0
+				end
+			end
+		end
+		if character and character:FindFirstChild("HumanoidRootPart") then
+			for _, descendant in character:GetDescendants() do
+				if descendant.Name == "HumanoidRootPart" then
+					descendant.Transparency = 1
+				end
+			end
+		end
+		ghostModeActive = false
+		GhostModeButton.Text = "Ghost Mode"
+		GhostModeButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		for _, descendant in Workspace:GetDescendants() do
+			if descendant.Name == "HumanoidRootPart" then
+				descendant.Transparency = 1
+			end
+		end
+	end)
+end)
+
+local UltraInstinctButton = Instance.new("TextButton", menuframe)
+UltraInstinctButton.Name = "UltraInstinctButton"
+UltraInstinctButton.Position = UDim2.new(0.069, 0, 0.251, 0)
+UltraInstinctButton.Size = UDim2.new(0, 200, 0, 50)
+UltraInstinctButton.Text = "Ultra Instinct"
+
+local ultraInstinctEnabled = false
+local playerHealthMap = {}
+local TWEEN_DISTANCE = 18
+local TWEEN_DURATION = 0.25
+local activeTweens = {}
+
+local function onCharacterAdded(character)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		playerHealthMap[humanoid] = humanoid.Health
+
+		humanoid.HealthChanged:Connect(function(newHealth)
+			if not ultraInstinctEnabled or character ~= LocalPlayer.Character then
+				playerHealthMap[humanoid] = newHealth
+				return
+			end
+
+			local previousHealth = playerHealthMap[humanoid]
+
+			if previousHealth and newHealth < previousHealth then
+				local rootPart = character:FindFirstChild("HumanoidRootPart")
+				if rootPart then
+					if activeTweens[rootPart] then
+						activeTweens[rootPart]:Cancel()
+						activeTweens[rootPart] = nil
+					end
+
+					local dodgeDirection = (math.random(0, 1) == 0 and -1 or 1) * rootPart.CFrame.RightVector
+					local targetCFrame = rootPart.CFrame + dodgeDirection * TWEEN_DISTANCE
+					local tweenInfo = TweenInfo.new(TWEEN_DURATION, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+					local tween = TweenService:Create(rootPart, tweenInfo, { CFrame = targetCFrame })
+
+					activeTweens[rootPart] = tween
+
+					tween.Completed:Connect(function()
+						activeTweens[rootPart] = nil
+					end)
+
+					tween:Play()
+				end
+			end
+			playerHealthMap[humanoid] = newHealth
+		end)
+
+		humanoid.Died:Connect(function()
+			playerHealthMap[humanoid] = nil
+			local rootPart = character:FindFirstChild("HumanoidRootPart")
+			if rootPart and activeTweens[rootPart] then
+				activeTweens[rootPart]:Cancel()
+				activeTweens[rootPart] = nil
+			end
+		end)
+	end
+end
+
+local function onPlayerAddedToGame(player)
+	player.CharacterAdded:Connect(onCharacterAdded)
+	if player.Character then
+		onCharacterAdded(player.Character)
+	end
+end
+
+Players.PlayerAdded:Connect(onPlayerAddedToGame)
+
+for _, player in Players:GetPlayers() do
+	task.spawn(onPlayerAddedToGame, player)
+end
+
+UltraInstinctButton.MouseButton1Click:Connect(function()
+	ultraInstinctEnabled = not ultraInstinctEnabled
+
+	if ultraInstinctEnabled then
+		UltraInstinctButton.Text = "Ultra Instinct: ON"
+		UltraInstinctButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+	else
+		UltraInstinctButton.Text = "Ultra Instinct"
+		UltraInstinctButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	end
+end)
+
+if ultraInstinctEnabled then
+	UltraInstinctButton.Text = "Ultra Instinct: ON"
+	UltraInstinctButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+else
+	UltraInstinctButton.Text = "Ultra Instinct"
+	UltraInstinctButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+end
+
+local TpGuiImport = Instance.new("TextButton", menuframe)
+TpGuiImport.Position = UDim2.new(0.069, 0, 0.397, 0)
+TpGuiImport.Size = UDim2.new(0, 200, 0, 50)
+TpGuiImport.Text = "IDKTpGui"
+TpGuiImport.MouseButton1Click:Connect(function()
+	local Players = game:GetService("Players")
+	local RunService = game:GetService("RunService")
+	local UserInputService = game:GetService("UserInputService")
+
+	local LocalPlayer = Players.LocalPlayer
+	local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+	local isTeleportingLoopActive = false
+	local currentTargetCharacter = nil
+	local teleportLoopConnection = nil
+
+	local isTeleportingToAllActive = false
+	local teleportAllLoopCoroutine = nil
+
+	local followgui = Instance.new("ScreenGui")
+	followgui.Name = "FollowGui"
+	followgui.ResetOnSpawn = false
+	followgui.Parent = PlayerGui
+
+	local followframe = Instance.new("Frame")
+	followframe.Name = "FollowFrame"
+	followframe.Size = UDim2.new(0, 300, 0, 160)
+	followframe.Position = UDim2.new(0.5, -150, 0.5, -80)
+	followframe.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	followframe.BorderSizePixel = 1
+	followframe.BorderColor3 = Color3.fromRGB(80, 80, 80)
+	followframe.Parent = followgui
+	followframe.Active = true
+	followframe.Draggable = true
+
+	local followinput = Instance.new("TextBox")
+	followinput.Name = "FollowInput"
+	followinput.Size = UDim2.new(0.9, 0, 0, 30)
+	followinput.Position = UDim2.new(0.05, 0, 0.1, 0)
+	followinput.PlaceholderText = "Enter username to teleport to"
+	followinput.TextColor3 = Color3.fromRGB(220, 220, 220)
+	followinput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	followinput.BorderSizePixel = 0
+	followinput.ClearTextOnFocus = true
+	followinput.TextScaled = false
+	followinput.Font = Enum.Font.SourceSans
+	followinput.TextSize = 14
+	followinput.Parent = followframe
+	followinput.Text = "IDKtpGUI"
+
+	local followtoggle = Instance.new("TextButton")
+	followtoggle.Name = "FollowToggle"
+	followtoggle.Size = UDim2.new(0.9, 0, 0, 30)
+	followtoggle.Position = UDim2.new(0.05, 0, 0.4, 0)
+	followtoggle.Text = "Tp: OFF"
+	followtoggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+	followtoggle.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+	followtoggle.BorderSizePixel = 0
+	followtoggle.TextScaled = false
+	followtoggle.Font = Enum.Font.SourceSansBold
+	followtoggle.TextSize = 16
+	followtoggle.Parent = followframe
+
+	local teleportAllButton = Instance.new("TextButton")
+	teleportAllButton.Name = "TeleportAllButton"
+	teleportAllButton.Size = UDim2.new(0.9, 0, 0, 30)
+	teleportAllButton.Position = UDim2.new(0.05, 0, 0.7, 0)
+	teleportAllButton.Text = "Tp All: OFF"
+	teleportAllButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	teleportAllButton.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
+	teleportAllButton.BorderSizePixel = 0
+	teleportAllButton.TextScaled = false
+	teleportAllButton.Font = Enum.Font.SourceSansBold
+	teleportAllButton.TextSize = 16
+	teleportAllButton.Parent = followframe
+
+	local closeButton = Instance.new("TextButton")
+	closeButton.Name = "CloseButton"
+	closeButton.Size = UDim2.new(0, 20, 0, 20) 
+	closeButton.Position = UDim2.new(1, -25, 0, 5) 
+	closeButton.Text = "X"
+	closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	closeButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+	closeButton.BorderSizePixel = 0
+	closeButton.Font = Enum.Font.SourceSansBold
+	closeButton.TextSize = 14
+	closeButton.Parent = followframe
+
+	local function stopTeleportLoop()
+		if not isTeleportingLoopActive and not teleportLoopConnection then
+			if followtoggle.Text ~= "Tp: OFF" then
+				followtoggle.Text = "Tp: OFF"
+			end
+			return
+		end
+
+		isTeleportingLoopActive = false
+		if teleportLoopConnection then
+			teleportLoopConnection:Disconnect()
+			teleportLoopConnection = nil
+		end
+
+		followtoggle.Text = "Tp: OFF"
+		currentTargetCharacter = nil
+	end
+
+	local function stopTeleportAllLoop()
+		if not isTeleportingToAllActive and not teleportAllLoopCoroutine then
+			if teleportAllButton.Text ~= "Tp All: OFF" then
+				teleportAllButton.Text = "Tp All: OFF"
+			end
+			return
+		end
+
+		isTeleportingToAllActive = false
+		if teleportAllLoopCoroutine then
+			task.cancel(teleportAllLoopCoroutine)
+			teleportAllLoopCoroutine = nil
+		end
+		teleportAllButton.Text = "Tp All: OFF"
+	end
+
+	closeButton.MouseButton1Click:Connect(function()
+		followgui:Destroy()
+	end)
+
+	followtoggle.MouseButton1Click:Connect(function()
+		if isTeleportingLoopActive then
+			stopTeleportLoop()
+		else
+			stopTeleportAllLoop()
+
+			local usernameToFollow = followinput.Text
+			if usernameToFollow == "" then
+				return
+			end
+
+			local targetPlayer = Players:FindFirstChild(usernameToFollow)
+
+			if targetPlayer and targetPlayer ~= LocalPlayer then
+				local targetChar = targetPlayer.Character or targetPlayer.CharacterAdded:Wait()
+
+				if targetChar and targetChar.Parent then
+					local localChar = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+					if not (localChar and localChar.Parent) then
+						followinput.Text = ""
+						stopTeleportLoop()
+						return
+					end
+
+					local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+					local localHRP = localChar:FindFirstChild("HumanoidRootPart")
+
+					if not targetHRP then
+						followinput.Text = ""
+						stopTeleportLoop()
+						return
+					end
+					if not localHRP then
+						followinput.Text = ""
+						stopTeleportLoop()
+						return
+					end
+
+					localChar:PivotTo(targetHRP.CFrame)
+
+					currentTargetCharacter = targetChar
+					isTeleportingLoopActive = true
+					followtoggle.Text = "Tp: ON"
+
+					if teleportLoopConnection then
+						teleportLoopConnection:Disconnect()
+						teleportLoopConnection = nil
+					end
+
+					teleportLoopConnection = RunService.Heartbeat:Connect(function()
+						if not isTeleportingLoopActive then
+							if teleportLoopConnection then
+								teleportLoopConnection:Disconnect()
+								teleportLoopConnection = nil
+							end
+							return
+						end
+
+						local currentLocalCharacter = LocalPlayer.Character
+						local currentTargetHRP = currentTargetCharacter and currentTargetCharacter:FindFirstChild("HumanoidRootPart")
+						local currentTargetHumanoid = currentTargetCharacter and currentTargetCharacter:FindFirstChildOfClass("Humanoid")
+
+						if not currentLocalCharacter or not currentLocalCharacter.Parent then
+							stopTeleportLoop()
+							return
+						end
+
+						local currentLocalHRP = currentLocalCharacter:FindFirstChild("HumanoidRootPart")
+						if not currentLocalHRP then
+							stopTeleportLoop()
+							return
+						end
+
+						if not (currentTargetCharacter and currentTargetCharacter.Parent and currentTargetHRP and currentTargetHumanoid and currentTargetHumanoid.Health > 0) then
+							stopTeleportLoop()
+							return
+						end
+
+						currentLocalCharacter:PivotTo(currentTargetHRP.CFrame)
+					end)
+				else
+					followinput.Text = ""
+					stopTeleportLoop()
+				end
+			else
+				followinput.Text = ""
+				stopTeleportLoop()
+			end
+		end
+	end)
+
+	teleportAllButton.MouseButton1Click:Connect(function()
+		if isTeleportingToAllActive then
+			stopTeleportAllLoop()
+		else
+			stopTeleportLoop()
+
+			isTeleportingToAllActive = true
+			teleportAllButton.Text = "Tp All: ON"
+
+			teleportAllLoopCoroutine = task.spawn(function()
+				while isTeleportingToAllActive do
+					local localPlayerCharacterForCycle = LocalPlayer.Character
+					local localPlayerHRPForCycle = localPlayerCharacterForCycle and localPlayerCharacterForCycle:FindFirstChild("HumanoidRootPart")
+
+					if not (localPlayerCharacterForCycle and localPlayerCharacterForCycle.Parent and localPlayerHRPForCycle) then
+						if isTeleportingToAllActive then
+							stopTeleportAllLoop()
+						end
+						break 
+					end
+
+					local anyValidTargetInCycle = false
+					for _, player in Players:GetPlayers() do
+						if not isTeleportingToAllActive then 
+							break 
+						end
+
+						if player == LocalPlayer then 
+							continue 
+						end
+
+						local targetChar = player.Character
+						local targetHRP = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+						local targetHumanoid = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
+
+						if targetChar and targetChar.Parent and targetHRP and targetHumanoid and targetHumanoid.Health > 0 then
+							local currentLocalCharForTeleport = LocalPlayer.Character
+							local currentLocalHRPForTeleport = currentLocalCharForTeleport and currentLocalCharForTeleport:FindFirstChild("HumanoidRootPart")
+
+							if not (currentLocalCharForTeleport and currentLocalCharForTeleport.Parent and currentLocalHRPForTeleport) then
+								if isTeleportingToAllActive then 
+									stopTeleportAllLoop() 
+								end
+								break 
+							end
+
+							currentLocalCharForTeleport:PivotTo(targetHRP.CFrame)
+							anyValidTargetInCycle = true
+							task.wait(0.01)
+						end
+					end 
+
+					if not isTeleportingToAllActive then 
+						break 
+					end
+
+					if not anyValidTargetInCycle and isTeleportingToAllActive then
+						task.wait(0.1) 
+					end
+				end 
+			end)
+		end
+	end)
+
+	followgui.Destroying:Connect(function()
+		stopTeleportLoop()
+		stopTeleportAllLoop()
+	end)
+
+end)
+
+local FlyButton = Instance.new("TextButton", menuframe)
+FlyButton.Position = UDim2.new(0.069, 0, 0.543, 0)
+FlyButton.Size = UDim2.new(0, 200, 0, 50)
+FlyButton.Text = "Fly"
+
+local isFlying = false
+local flySpeed = 50
+local flyGyro = nil
+local flyVelocity = nil
+
+local moveInputs = {
+	Forward = Enum.KeyCode.W,
+	Backward = Enum.KeyCode.S,
+	Left = Enum.KeyCode.A,
+	Right = Enum.KeyCode.D,
+	Up = Enum.KeyCode.Space,
+	Down = Enum.KeyCode.LeftShift
+}
+local currentMoveInputs = {}
+
+local function cleanupFlyMovers()
+	if flyGyro then
+		flyGyro:Destroy()
+		flyGyro = nil
+	end
+	if flyVelocity then
+		flyVelocity:Destroy()
+		flyVelocity = nil
+	end
+end
+
+local function toggleFly()
+	local character = LocalPlayer.Character
+	if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+
+	local rootPart = character.HumanoidRootPart
+
+	isFlying = not isFlying
+
+	if isFlying then
+		cleanupFlyMovers()
+
+		flyGyro = Instance.new("BodyGyro")
+		flyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+		flyGyro.P = 10000
+		flyGyro.D = 500
+		flyGyro.Parent = rootPart
+
+		flyVelocity = Instance.new("BodyVelocity")
+		flyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+		flyVelocity.P = 5000
+		flyVelocity.Velocity = Vector3.new(0, 0, 0)
+		flyVelocity.Parent = rootPart
+
+		humanoid.PlatformStand = true
+
+		FlyButton.Text = "Fly [ON]"
+		FlyButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+	else
+		cleanupFlyMovers()
+		humanoid.PlatformStand = false
+
+		FlyButton.Text = "Fly [OFF]"
+		FlyButton.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+	end
+end
+
+RunService.Heartbeat:Connect(function(dt)
+	if isFlying and flyGyro and flyVelocity then
+		local character = LocalPlayer.Character
+		if not character or not character:FindFirstChild("HumanoidRootPart") then
+			cleanupFlyMovers()
+			isFlying = false
+			FlyButton.Text = "Fly [OFF]"
+			FlyButton.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+			local hum = character and character:FindFirstChildOfClass("Humanoid")
+			if hum then hum.PlatformStand = false end
+			return
+		end
+
+		local rootPart = character.HumanoidRootPart
+		local currentRotation = Camera.CFrame
+
+		flyGyro.CFrame = currentRotation
+
+		local moveDirection = Vector3.new(0, 0, 0)
+		if currentMoveInputs[moveInputs.Forward] then
+			moveDirection = moveDirection + currentRotation.LookVector
+		end
+		if currentMoveInputs[moveInputs.Backward] then
+			moveDirection = moveDirection - currentRotation.LookVector
+		end
+		if currentMoveInputs[moveInputs.Left] then
+			moveDirection = moveDirection - currentRotation.RightVector
+		end
+		if currentMoveInputs[moveInputs.Right] then
+			moveDirection = moveDirection + currentRotation.RightVector
+		end
+		if currentMoveInputs[moveInputs.Up] then
+			moveDirection = moveDirection + Vector3.new(0, 1, 0)
+		end
+		if currentMoveInputs[moveInputs.Down] then
+			moveDirection = moveDirection - Vector3.new(0, 1, 0)
+		end
+
+		if moveDirection.Magnitude > 0 then
+			flyVelocity.Velocity = moveDirection.Unit * flySpeed
+		else
+			flyVelocity.Velocity = Vector3.new(0, 0, 0)
+		end
+	elseif not isFlying then
+		if flyVelocity then flyVelocity.Velocity = Vector3.new(0,0,0) end
+	end
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+	if gameProcessedEvent then return end
+
+	for _, keycode in moveInputs do
+		if input.KeyCode == keycode then
+			currentMoveInputs[keycode] = true
+			break
+		end
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	for _, keycode in moveInputs do
+		if input.KeyCode == keycode then
+			currentMoveInputs[keycode] = false
+			break
+		end
+	end
+end)
+
+FlyButton.MouseButton1Click:Connect(toggleFly)
+
+FlyButton.Text = "Fly [OFF]"
+FlyButton.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+
+local EspPlayersButton = Instance.new("TextButton", menuframe)
+EspPlayersButton.Position = UDim2.new(0.069, 0, 0.683, 0)
+EspPlayersButton.Size = UDim2.new(0, 200, 0, 50)
+EspPlayersButton.Text = "Toggle ESP"
+
+local espEnabled = false
+local espPlayerConnections = {}
+local espGlobalConnections = {}
+
+local function removeESPVisuals(character)
+	if not character then return end
+	local highlight = character:FindFirstChild("Highlight")
+	if highlight then highlight:Destroy() end
+
+	local head = character:FindFirstChild("Head")
+	if head then
+		local billboardGui = head:FindFirstChild("PlayerNameGui")
+		if billboardGui then billboardGui:Destroy() end
+	else
+		local billboardGui = character:FindFirstChild("PlayerNameGui")
+		if billboardGui then billboardGui:Destroy() end
+	end
+end
+
+local function createOrUpdateESPVisuals(player)
+	if player == LocalPlayer or not espEnabled then return end
+
+	local character = player.Character
+	if not character then return end
+
+	removeESPVisuals(character)
+
+	local head = character:WaitForChild("Head", 2)
+	if not head then
+		return
+	end
+
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "Highlight"
+	highlight.Adornee = character
+	highlight.FillColor = Color3.fromRGB(255, 0, 0)
+	highlight.FillTransparency = 0.5
+	highlight.OutlineTransparency = 0.5
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Parent = character
+
+	local billboardGui = Instance.new("BillboardGui")
+	billboardGui.Name = "PlayerNameGui"
+	billboardGui.Adornee = head
+	billboardGui.Size = UDim2.new(0, 100, 0, 30)
+	billboardGui.StudsOffset = Vector3.new(0, 2.5, 0)
+	billboardGui.AlwaysOnTop = true
+	billboardGui.LightInfluence = 0
+	billboardGui.Parent = head
+
+	local textLabel = Instance.new("TextLabel")
+	textLabel.Size = UDim2.new(1, 0, 1, 0)
+	textLabel.BackgroundTransparency = 1
+	textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	textLabel.TextStrokeTransparency = 0.5
+	textLabel.TextSize = 16
+	textLabel.Font = Enum.Font.SourceSansBold
+	textLabel.Text = player.Name
+	textLabel.Parent = billboardGui
+end
+
+local function setupPlayerForESP(player)
+	if espPlayerConnections[player] then return end
+
+	espPlayerConnections[player] = {}
+
+	local function onCharAddedESP(character)
+		if espEnabled then
+			task.defer(createOrUpdateESPVisuals, player)
+		end
+	end
+
+	local function onCharRemovingESP(character)
+		removeESPVisuals(character)
+	end
+
+	if player.Character then
+		onCharAddedESP(player.Character)
+	end
+
+	table.insert(espPlayerConnections[player], player.CharacterAdded:Connect(onCharAddedESP))
+	table.insert(espPlayerConnections[player], player.CharacterRemoving:Connect(onCharRemovingESP))
+end
+
+local function cleanupPlayerESP(player)
+	if espPlayerConnections[player] then
+		for _, conn in espPlayerConnections[player] do
+			conn:Disconnect()
+		end
+		espPlayerConnections[player] = nil
+	end
+	if player.Character then
+		removeESPVisuals(player.Character)
+	end
+end
+
+local function toggleESP()
+	espEnabled = not espEnabled
+
+	if espEnabled then
+		EspPlayersButton.Text = "Disable ESP"
+		EspPlayersButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+
+		for _, player in Players:GetPlayers() do
+			if player ~= LocalPlayer then
+				setupPlayerForESP(player)
+			end
+		end
+
+		local playerAddedConn = Players.PlayerAdded:Connect(function(player)
+			if player ~= LocalPlayer then
+				setupPlayerForESP(player)
+			end
+		end)
+		table.insert(espGlobalConnections, playerAddedConn)
+
+		local playerRemovingConn = Players.PlayerRemoving:Connect(function(player)
+			cleanupPlayerESP(player)
+			if espPlayerConnections[player] then
+				espPlayerConnections[player] = nil
+			end
+		end)
+		table.insert(espGlobalConnections, playerRemovingConn)
+
+	else
+		EspPlayersButton.Text = "Enable ESP"
+		EspPlayersButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+
+		for _, conn in espGlobalConnections do
+			conn:Disconnect()
+		end
+		espGlobalConnections = {}
+
+		local playersToCleanup = {}
+		for player, _ in espPlayerConnections do
+			table.insert(playersToCleanup, player)
+		end
+		for _, player in playersToCleanup do
+			cleanupPlayerESP(player)
+		end
+		espPlayerConnections = {}
+
+
+		for _, player in Players:GetPlayers() do
+			if player.Character then
+				removeESPVisuals(player.Character)
+			end
+		end
+	end
+end
+
+EspPlayersButton.MouseButton1Click:Connect(toggleESP)
+
+local AdminCommands = Instance.new("TextButton", menuframe)
+AdminCommands.Position = UDim2.new(0.069, 0, 0.823, 0)
+AdminCommands.Size = UDim2.new(0, 200, 0, 50)
+AdminCommands.Text = "Admin Commands"
+
+AdminCommands.MouseButton1Click:Connect(function()
+	local success, err = pcall(function()
+		loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+	end)
+end)
+
+LocalPlayer.CharacterAdded:Connect(function(character)
+	if isFlying then
+		isFlying = false
+		cleanupFlyMovers()
+		FlyButton.Text = "Fly [OFF]"
+		FlyButton.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+	end
+	currentMoveInputs = {}
+
+	onCharacterAdded(character) 
+
+	local humanoid = character:WaitForChild("Humanoid")
+	humanoid.PlatformStand = false
+end)
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "RotationControllerGui"
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+local button = Instance.new("TextButton")
+button.Name = "TornadoButton"
+button.Text = "Start Tornado"
+button.Size = UDim2.new(0, 200, 0, 50)
+button.Position = UDim2.new(0.5, -80, 0.1, 0)
+button.BackgroundColor3 = Color3.fromRGB(75, 125, 200)
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.Font = Enum.Font.SourceSansBold
+button.TextSize = 18
+button.Parent = screenGui
+local isRotating = false
+local angle = 0
+local rotationSpeed = math.rad(1500) 
+local radiusX = 25 
+local radiusZ = 30 
+local radiusY = 25 
+local centerPosition = nil
+local function getValidHRP()
+	if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		return LocalPlayer.Character.HumanoidRootPart
+	end
+	return nil
+end
+button.MouseButton1Click:Connect(function()
+	isRotating = not isRotating
+	if isRotating then
+		local hrp = getValidHRP()
+		if hrp then
+			centerPosition = hrp.Position
+			angle = 0 
+			button.Text = "Stop Tornado"
+			button.BackgroundColor3 = Color3.fromRGB(200, 75, 75)
+		else
+			isRotating = false 
+			button.Text = "Start Tornado (No Character)"
+			button.BackgroundColor3 = Color3.fromRGB(75, 125, 200)
+		end
+	else
+		button.Text = "Start Tornado"
+		button.BackgroundColor3 = Color3.fromRGB(75, 125, 200)
+		centerPosition = nil 
+	end
+end)
+
+RunService.RenderStepped:Connect(function(deltaTime)
+	if not isRotating then
+		return
+	end
+
+	local hrp = getValidHRP()
+	if not hrp or not centerPosition then
+		isRotating = false
+		button.Text = "Start Tornado (Error)"
+		button.BackgroundColor3 = Color3.fromRGB(75, 125, 200)
+		centerPosition = nil
+		return 
+	end
+	
+	angle = angle + rotationSpeed * deltaTime
+
+	local offsetX = radiusX * math.cos(angle)
+	local offsetZ = radiusZ * math.sin(angle)
+	local offsetY = radiusY * math.sin(angle * 0.75) 
+
+	local newPosition = Vector3.new(centerPosition.X + offsetX, centerPosition.Y + offsetY, centerPosition.Z + offsetZ)
+
+	local lookAtAngle = angle + 0.01 
+	local lookAtOffsetX_ahead = radiusX * math.cos(lookAtAngle)
+	local lookAtOffsetZ_ahead = radiusZ * math.sin(lookAtAngle)
+	local lookAtOffsetY_ahead = radiusY * math.sin(lookAtAngle * 0.75)
+
+	local lookAtPosition = Vector3.new(
+		centerPosition.X + lookAtOffsetX_ahead,
+		centerPosition.Y + lookAtOffsetY_ahead,
+		centerPosition.Z + lookAtOffsetZ_ahead
+	)
+
+	hrp.CFrame = CFrame.new(newPosition, lookAtPosition)
+end)
+CloseGuiButton.MouseButton1Click:Connect(function()
+	menu:Destroy()
+	button:Destroy() 
+end)
+while task.wait(0.1) do
+	if game:GetService("Players").LocalPlayer.Character then
+		if game:GetService("Players").LocalPlayer.Character.Humanoid then
+			if game:GetService("Players").LocalPlayer.Character.Humanoid.Health < 1 then
+				ultraInstinctEnabled = false
+				espEnabled = false
+				local playersToCleanup = {}
+				for player, _ in espPlayerConnections do
+					table.insert(playersToCleanup, player)
+				end
+				for _, player in playersToCleanup do
+					cleanupPlayerESP(player)
+				end
+				espPlayerConnections = {}
+			end
+		end
+	end
+end
