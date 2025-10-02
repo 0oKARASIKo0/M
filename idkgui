@@ -853,6 +853,7 @@ LocalPlayer.CharacterAdded:Connect(function(character)
 end)
 
 local screenGui = Instance.new("ScreenGui")
+screenGui.ResetOnSpawn = false
 screenGui.Name = "RotationControllerGui"
 screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 local button = Instance.new("TextButton")
